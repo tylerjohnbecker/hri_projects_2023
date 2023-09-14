@@ -95,9 +95,9 @@ def find_longest_sequence(seq_num):
             longest_num = seq_len
             longest_seq_index = len(seqs) - 1
 
-    print(f'biggest index is {longest_seq_index}')
-    for i in seqs:
-        print(f'seq {i[0]} -> {i[1]} of len {i[1] - i[0]}')
+    # print(f'biggest index is {longest_seq_index}')
+    # for i in seqs:
+    #     print(f'seq {i[0]} -> {i[1]} of len {i[1] - i[0]}')
 
     return seqs[longest_seq_index]
 
@@ -130,9 +130,6 @@ def go_forward_until_obstacle(pub, min_dist):
         while find_closest_obstacle() >= min_dist:
 
             pub.publish(twistmsg)
-
-        print(f'found an obstacle {find_closest_obstacle()} away!')
-
     
     except rospy.ROSInterruptException:
         rospy.loginfo("please stop")
@@ -212,8 +209,6 @@ def turn_right(pub, rad, forward_speed):
 
             cur_y = y
 
-            # print(f'cur_y{cur_y} - end_y{end_y} == {end_y - cur_y}')
-
             pub.publish(twistmsg)
 
 
@@ -257,8 +252,6 @@ def turn_toward(pub, angle):
 
     dist, direction = get_smallest_dist_and_direction(init_y, angle)
 
-    print(f'going {direction} this amount {dist} from {init_y} to end up at {angle}')
-
     if 'right' == direction:
         turn_right(pub, dist, 0.0)
     else:
@@ -283,11 +276,7 @@ def run_avoidance(pub):
 
        angle = find_farthest_obstacle_angle()
 
-       print(f'found object at angle {angle}')
-
        world_angle = transform_sensor_angle_to_world_angle(angle)
-
-       print(f'angle{world_angle}')
 
        turn_toward(pub, world_angle)
 
