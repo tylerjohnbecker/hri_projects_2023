@@ -7,10 +7,22 @@ from nav_msgs.msg import Odometry
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 import math
 import threading
+import matplotlib.pyplot as plt
+import os.path as path 
+import sys
+import numpy as np
+from PIL import Image
 from sensor_msgs.msg import LaserScan
+from people_msgs.msg import PositionMeasurementArray, PositionMeasurement
 
 my_pos = None
 laser_data = None
+most_likely_person = None
+
+my_map = []
+image_size = [ 35, 35, .5 ]
+meter_to_pixel = 1 / 33
+center_coords = []
 
 def set_pos_cb(data):
     global my_pos 
@@ -21,6 +33,33 @@ def laser_cb(data):
     global laser_data
 
     laser_data = data
+
+def person_cb(data):
+    global most_likely_person
+
+    max_rel = -1
+    current_person = None
+
+    for i in data.people:
+        if i.reliability > max_rel and that_person_is_not_in_a_wall(i):
+            max_rel = i.reliability
+            current_person = copy.deepcopy(i)
+
+    most_likely_person = current_person
+
+def read_map(f):
+    global center_coords, my_map 
+    my_map = Image.open(f)
+
+    my_map = my_map.rotate(90)
+
+    my_map = np.asarray(my_map)
+
+    print(my_map)
+
+    center_coords = [ int(len(my_map) / 2), int(len(my_map[0]) / 2) ]
+
+    print(my_map[center_coords[0]][center_coords[1]])
 
 def go_forward(pub, dist):
 
@@ -282,7 +321,98 @@ def run_avoidance(pub):
 
        go_forward(pub, .4)
 
+def avoid_obstacle(pub):
+   global my_pos, laser_data
 
+   angle = find_farthest_obstacle_angle()
+
+   world_angle = transform_sensor_angle_to_world_angle(angle)
+
+   turn_toward(pub, world_angle)
+
+   go_forward(pub, .6)
+
+def detect_closest_person():
+    global most_likely_person, my_pos
+
+    if most_likely_person == None:
+        return -1, -1
+
+    angle_between = math.atan2(most_likely_person.pos.y - my_pos.position.y, most_likely_person.pos.x - my_pos.position.x)
+
+    if angle_between < 0:
+        angle_between += 2 * math.pi
+
+    return [most_likely_person.pos.x, most_likely_person.pos.y], angle_between
+
+def get_laser_pos_in_odom(laser_dist, laser_angle):
+    pass
+
+def get_person_angle_in_laser(person):
+    pass
+
+def that_person_is_not_in_a_wall(person):
+    global my_pos, laser_data
+
+    # first check if there is a person in the scene
+
+    return True
+
+def follow_people(pub):
+    global my_pos, laser_data, most_likely_person
+
+    while my_pos == None or laser_data == None:
+        pass
+
+    goal_loc = None
+    goal_angle = -10
+
+    while not rospy.is_shutdown():
+        loc, angle = detect_closest_person()
+
+        if goal_loc == None or goal_angle == -10:
+
+            if ( loc == -1 and angle == -1 ):
+                print('can\'t find person turning right 90 degrees')
+
+                turn_right(pub, math.pi / 2, 0.0)
+
+                rospy.sleep(2)
+
+                goal_loc = None
+                goal_angle = -10
+
+                continue
+
+            goal_loc = loc
+            goal_angle = angle
+
+            print(f'Person detected at {goal_loc}! Starting pursuit...')
+
+
+        turn_toward(pub, goal_angle)
+
+        go_forward_until_obstacle(pub, .8)
+
+        if math.dist([ my_pos.position.x, my_pos.position.y ] , goal_loc ) < 2.0:
+            print(f"I found them at {goal_loc}! Please hit enter for me to follow them again...", end='')
+
+            input()
+
+            goal_loc = None
+            goal_angle = -10
+
+            continue
+
+        avoid_obstacle(pub)
+
+        if math.dist([ my_pos.position.x, my_pos.position.y ] , goal_loc ) < 1.0:
+            print(f"I found them at {goal_loc}! Please hit enter for me to follow them again...", end='')
+
+            input()
+
+            goal_loc = None
+            goal_angle = -10
 
 if __name__ == '__main__':
 
@@ -295,4 +425,16 @@ if __name__ == '__main__':
 
     odom_sub = rospy.Subscriber('/base_pose_ground_truth', Odometry, set_pos_cb)
 
-    run_avoidance(pub)
+    person_sub = rospy.Subscriber('/people_tracker_measurements', PositionMeasurementArray, person_cb)
+
+    map_loc = __file__
+
+    head, tail = path.split(map_loc)
+
+    map_loc, tail = path.split(head)
+
+    map_loc += '/world/basic_map.pgm'
+
+    read_map(map_loc)
+
+    # follow_people(pub)
