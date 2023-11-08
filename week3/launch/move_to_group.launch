@@ -1,0 +1,5 @@
+<launch>
+	<group ns='robot_0'>
+		<node pkg='week3' type='group_mover.py' name='robot_0_mover' output='screen'/>
+	</group>
+</launch>
