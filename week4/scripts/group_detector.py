@@ -194,7 +194,7 @@ def generate_visualization_msg(group_msg):
 		
 		n_msg.header.frame_id = "robot_0/odom";
 		n_msg.header.stamp = rospy.Time();
-		n_msg.ns = split_info[0] + '_' + namespace
+		n_msg.ns = 'group_' + namespace
 		n_msg.id = int(namespace)
 
 		n_msg.type = 2
@@ -216,7 +216,7 @@ def generate_visualization_msg(group_msg):
 
 		n_msg.header.frame_id = "robot_0/odom";
 		n_msg.header.stamp = rospy.Time();
-		n_msg.ns = split_info[0] + '_' + namespace
+		n_msg.ns = 'group_' + namespace
 		n_msg.id = int(namespace)
 
 		n_msg.type = 1
@@ -309,9 +309,26 @@ def main(group_pub, viz_pub):
 
 		rospy.sleep(.1)
 
+def delete_all_viz_messages():
+	viz_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
+
+	n_msg = Marker()
+
+	n_msg.header.frame_id = 'robot_0/odom'
+	n_msg.header.stamp = rospy.Time()
+
+	n_msg.ns = 'group_0'
+	n_msg.action = 3
+
+	for i in range(10):
+		n_msg.id = i
+		viz_pub.publish(n_msg)
+
+
 if __name__ == '__main__':
 
 	rospy.init_node('avoider', anonymous=True)
+	rospy.on_shutdown(delete_all_viz_messages)
 
 	group_pub = rospy.Publisher('/robot_0/detected_groups', Group, queue_size=10)
 	viz_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
