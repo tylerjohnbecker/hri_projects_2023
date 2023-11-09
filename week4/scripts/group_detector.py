@@ -3,8 +3,10 @@
 import rospy
 import copy
 import math
+from tf.transformations import quaternion_from_euler
 from people_msgs.msg import PositionMeasurementArray
-from geometry_msgs.msg import Point 
+from people_msgs.msg import Person
+from geometry_msgs.msg import Pose 
 from visualization_msgs.msg import Marker
 from week4.msg import Group
 
@@ -81,13 +83,14 @@ def in_a_line(grp):
 	current_cp = copy.deepcopy(grp)
 
 	for person in current_cp:
-		xy_poses.append([person.pos.x, person.msg_pos.y])
+		xy_poses.append([person.pos.x, person.pos.y])
 
 	inline = True
 
 	slope = None
 
 	prev_point = xy_poses[0]
+	delta_x = delta_y = 0
 
 	midpoint = copy.deepcopy(xy_poses[0])
 
@@ -96,7 +99,10 @@ def in_a_line(grp):
 		if index == 0:
 			continue
 
-		n_slope = ( pose[1] - prev_point[1] ) / ( pose[0] - prev_point[0] )
+		delta_x = ( pose[0] - prev_point[0] )
+		delta_y = ( pose[1] - prev_point[1] )
+
+		n_slope = delta_y / delta_x
 
 		midpoint[0] += pose[0] 
 		midpoint[1] += pose[1]
@@ -108,12 +114,22 @@ def in_a_line(grp):
 
 		slope = n_slope
 
+	yaw = math.atan2(delta_y, delta_x)
+
 	midpoint[0] /= len(xy_poses)
 	midpoint[1] /= len(xy_poses)
 
 	msg_midpoint = Pose()
 	msg_midpoint.position.x = midpoint[0]
 	msg_midpoint.position.y = midpoint[1]
+
+	orientation = quaternion_from_euler(0, 0, yaw)
+
+	msg_midpoint.orientation.x = orientation[0]
+	msg_midpoint.orientation.y = orientation[1]
+	msg_midpoint.orientation.z = orientation[2]
+	msg_midpoint.orientation.w = orientation[3]
+	
 
 	largest_dist_person_1, largest_dist_person_2, max_dist = largest_distance(current_cp)
 
@@ -122,6 +138,7 @@ def in_a_line(grp):
 def in_a_circle(grp ):
 
 	# take the midpoint as the center of the circle, and calculate the radius
+	current_cp = copy.deepcopy(grp)
 
 	largest_dist_person_1, largest_dist_person_2, max_dist = largest_distance(current_cp)
 
@@ -167,7 +184,62 @@ def person_measurement_to_person_msg(measurement):
 	return n_msg
 
 def generate_visualization_msg(group_msg):
-	pass
+	n_msg = Marker()
+
+	split_info = group_msg.group_members[0].name.split('_')
+
+	namespace = split_info[1]
+
+	if group_msg.type == 'circle':
+		
+		n_msg.header.frame_id = "robot_0/odom";
+		n_msg.header.stamp = rospy.Time();
+		n_msg.ns = split_info[0] + '_' + namespace
+		n_msg.id = int(namespace)
+
+		n_msg.type = 2
+		n_msg.action = 0
+		n_msg.pose = copy.deepcopy(group_msg.midpoint)
+
+		n_msg.scale.x = group_msg.size * 2
+		n_msg.scale.y = group_msg.size * 2
+		n_msg.scale.z = .001
+
+		n_msg.color.r = 1
+		n_msg.color.a = .34
+
+		n_msg.lifetime.nsecs = 0
+
+		return n_msg
+
+	elif group_msg.type == 'line':
+
+		n_msg.header.frame_id = "robot_0/odom";
+		n_msg.header.stamp = rospy.Time();
+		n_msg.ns = split_info[0] + '_' + namespace
+		n_msg.id = int(namespace)
+
+		n_msg.type = 1
+		n_msg.action = 0
+		n_msg.pose = copy.deepcopy(group_msg.midpoint)
+
+		n_msg.scale.x = group_msg.size
+		n_msg.scale.y = 1.0
+		n_msg.scale.z = .001
+
+		n_msg.color.r = 1
+		n_msg.color.a = .34
+
+		n_msg.lifetime.nsecs = 0
+
+		return n_msg
+
+	n_msg.header.frame_id = 'robot_0/odom'
+	n_msg.header.stamp = rospy.Time()
+
+	n_msg.action = 3
+
+	return n_msg
 
 def main(group_pub, viz_pub):
 	global measured_people, current_msgs
@@ -188,10 +260,10 @@ def main(group_pub, viz_pub):
 		# the underscore is gonna be placed weird in the name if the number of people is larger than 10
 		for index, group in enumerate( groups ):
 	
-			in_a_line, midpoint_l, size_l = in_a_line(group)
-			in_a_circ, midpoint_c, size_c = in_a_circle(group)
+			in_line, midpoint_l, size_l = in_a_line(group)
+			in_circ, midpoint_c, size_c = in_a_circle(group)
 
-			if len(group) > 1 and in_a_line:
+			if len(group) > 1 and in_line:
 
 				n_msg.type = 'line'
 
@@ -204,7 +276,7 @@ def main(group_pub, viz_pub):
 					n_person = person_measurement_to_person_msg(person)
 					n_msg.group_members.append(n_person)
 
-			elif len(group) > 1 and in_a_circ:
+			elif len(group) > 1 and in_circ:
 
 				n_msg.type = 'circle'
 
@@ -216,6 +288,7 @@ def main(group_pub, viz_pub):
 
 					n_person = person_measurement_to_person_msg(person)
 					n_msg.group_members.append(n_person)
+
 			else:
 
 				n_msg.type = 'other'
@@ -226,13 +299,13 @@ def main(group_pub, viz_pub):
 					n_person = person_measurement_to_person_msg(person)
 					n_msg.group_members.append(n_person)
 
-		viz_msg = generate_visualization_msg(n_msg, midpoint, size)
+			n_msg.size = size
+			n_msg.midpoint = midpoint
 
-		n_msg.size = size
-		n_msg.midpoint = midpoint
+			viz_msg = generate_visualization_msg(n_msg)
 
-		group_pub.publish(n_msg)
-		viz_pub.publish(viz_msg)
+			group_pub.publish(n_msg)
+			viz_pub.publish(viz_msg)
 
 		rospy.sleep(.1)
 
@@ -241,8 +314,8 @@ if __name__ == '__main__':
 	rospy.init_node('avoider', anonymous=True)
 
 	group_pub = rospy.Publisher('/robot_0/detected_groups', Group, queue_size=10)
-
+	viz_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)
 
 	person_sub = rospy.Subscriber('/people_tracker_measurements', PositionMeasurementArray, person_cb)
 
-	main(group_pub)
+	main(group_pub, viz_pub)
