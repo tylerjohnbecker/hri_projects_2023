@@ -324,7 +324,6 @@ def delete_all_viz_messages():
 		n_msg.id = i
 		viz_pub.publish(n_msg)
 
-
 if __name__ == '__main__':
 
 	rospy.init_node('avoider', anonymous=True)
