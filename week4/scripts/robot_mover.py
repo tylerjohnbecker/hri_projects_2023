@@ -7,20 +7,48 @@ import numpy as np
 from geometry_msgs.msg import Twist, Pose
 from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import LaserScan
 
 class Object:
 
-	def __init__(self):
-		self.midpoint 		= np.array([0, 0, 0])
-		self.gains 			= np.array([0, 0, 0])
+	def __init__(self, midpoint, gains, q_star):
+		self.midpoint 		= copy.deepcopy(midpoint)
+		self.gains 			= copy.deepcopy(gains)
+		self.q_star 		= copy.deepcopy(q_star)
 
 class ObjectIdentifier:
 
-	def __init__ (self):
+	def __init__ (self, odom):
 		self.objects 		= []
+		self.gains 			= np.array([.10, .10, .10])
+		self.q_star			= 3.0
+		self.odometry		= odom
+
+		self.laser_sub		= rospy.Subscriber('/robot_0/base_scan', LaserScan, self.laserCallback)
 
 	def laserCallback(self, data):
-		pass
+		
+		n_objects = []
+
+		print('hello ')
+
+		true_angle_min = self.odometry.orientation[2] + data.angle_min
+
+		for index, dist in enumerate(data.ranges):
+
+			if dist <= self.q_star:
+
+				dist_x = dist * math.cos( true_angle_min + data.angle_increment * index )
+				dist_y = dist * math.sin( true_angle_min + data.angle_increment * index )
+
+				midpoint = np.array([self.odometry.position[0] + dist_x, self.odometry.position[1] + dist_y, self.odometry.position[2]])
+
+				# print(self.odometry.position, dist, (true_angle_min + data.angle_increment * index), dist_x, dist_y, midpoint)
+
+				n_objects.append( Object(midpoint, self.gains, self.q_star) )
+
+		self.objects = n_objects
+
 
 class GroupIdentifier:
 
@@ -109,13 +137,21 @@ class PotentialFieldController:
 
 	def __init__ (self, tol):
 		self.groups 		= GroupIdentifier()
-		self.objects 		= ObjectIdentifier()
 		self.odom			= OdomListener()
+		self.objects 		= ObjectIdentifier(self.odom)
 		self.mover 			= RobotMover(self.odom)
 
 		self.goal 			= np.array([0, 0, 0])
 		self.obstacles  	= []
 		self.tolerance 		= tol
+
+	def updateObstacles(self):
+		self.obstacles = []
+
+		objects = copy.deepcopy(self.objects.objects)
+
+		for i in objects:
+			self.obstacles.append(i)
 
 	def calculateForce(self):
 		
@@ -134,15 +170,11 @@ class PotentialFieldController:
 		for i in self.obstacles:
 			dist = np.linalg.norm(self.odom.position - i.midpoint)
 
-			rep_force += i.gains * ( (1 / q_star) - (1 / dist) ) * (1 / math.pow(dist, 2)) * self.odom.lin_velocity
+			rep_force += i.gains * ( (1 / i.q_star) - (1 / dist) ) * (1 / math.pow(dist, 2) ) * ( (self.odom.position - i.midpoint) / dist )
 
-		tot_force = rep_force + attr_force
+		tot_force = attr_force - rep_force
 
 		return tot_force
-
-	# def calculateVelocity(self, delta_t):
-	# 	# assuming that mass is 1 for simplicity delta_v = delta_t * force / mass
-	# 	return delta_t * self.calculateForce()
 
 	def navigate(self, target):
 
@@ -151,6 +183,8 @@ class PotentialFieldController:
 		delta_t = .2
 
 		while np.linalg.norm(self.goal - self.odom.position) >= self.tolerance:
+
+			self.updateObstacles()
 
 			next_delta_v = self.calculateForce()
 
