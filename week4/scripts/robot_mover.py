@@ -96,11 +96,7 @@ class RobotMover:
 
 		true_angle = math.atan2(vel[1], vel[0])
 
-		print(self.odometry.orientation[2])
-
 		dist, direction = get_smallest_dist_and_direction( self.odometry.orientation[2] , true_angle )
-
-		print(dist)
 
 		if direction == 'right':
 			self.twist.angular.z = -1 * dist / delta_t
@@ -111,7 +107,7 @@ class PotentialFieldController:
 
 	tolerance = .5
 
-	def __init__ (self):
+	def __init__ (self, tol):
 		self.groups 		= GroupIdentifier()
 		self.objects 		= ObjectIdentifier()
 		self.odom			= OdomListener()
@@ -119,12 +115,13 @@ class PotentialFieldController:
 
 		self.goal 			= np.array([0, 0, 0])
 		self.obstacles  	= []
+		self.tolerance 		= tol
 
 	def calculateForce(self):
 		
-		tot_force	= np.array([0, 0, 0])
-		rep_force 	= np.array([0, 0, 0])
-		attr_force 	= np.array([0, 0, 0])
+		tot_force	= np.array([0., 0., 0.])
+		rep_force 	= np.array([0., 0., 0.])
+		attr_force 	= np.array([0., 0., 0.])
 
 		attr_gains 	= np.array([1.0, 1.0, 1.0])
 
@@ -141,11 +138,11 @@ class PotentialFieldController:
 
 		tot_force = rep_force + attr_force
 
-		return -1 * tot_force
+		return tot_force
 
-	def calculateVelocity(self, delta_t):
-		# assuming that mass is 1 for simplicity delta_v = delta_t * force / mass
-		return delta_t * self.calculateForce()
+	# def calculateVelocity(self, delta_t):
+	# 	# assuming that mass is 1 for simplicity delta_v = delta_t * force / mass
+	# 	return delta_t * self.calculateForce()
 
 	def navigate(self, target):
 
@@ -153,12 +150,11 @@ class PotentialFieldController:
 
 		delta_t = .2
 
-		for i in range(10000):
-		# while np.linalg.norm(self.goal - self.odom.position) <= tolerance:
+		while np.linalg.norm(self.goal - self.odom.position) >= self.tolerance:
 
-			# next_delta_v = self.calculateVelocity(delta_t)
+			next_delta_v = self.calculateForce()
 
-			self.mover.setTwistFromVelocity(np.array([0, 1, 0]), delta_t)
+			self.mover.setTwistFromVelocity(next_delta_v, delta_t)
 
 			self.mover.publishTwist()
 
@@ -169,6 +165,6 @@ if __name__ == '__main__':
 
 	rospy.init_node('intelligent_mover', anonymous=True)
 
-	pfc = PotentialFieldController()
+	pfc = PotentialFieldController(tol=.5)
 
-	pfc.navigate([0, 0, 0])
+	pfc.navigate(np.array([-6, 6, 0]))
