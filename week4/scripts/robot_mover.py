@@ -30,7 +30,7 @@ class ObjectIdentifier:
 		
 		n_objects = []
 
-		print('hello ')
+		# print('hello')
 
 		true_angle_min = self.odometry.orientation[2] + data.angle_min
 
@@ -120,11 +120,12 @@ class RobotMover:
 			rospy.logfatal('Unable to publish cmd_vel message...')
 
 	def setTwistFromVelocity(self, vel, delta_t):
-		self.twist.linear.x = np.linalg.norm(vel)
 
 		true_angle = math.atan2(vel[1], vel[0])
 
 		dist, direction = get_smallest_dist_and_direction( self.odometry.orientation[2] , true_angle )
+
+		self.twist.linear.x = max(np.linalg.norm(vel) * math.cos(dist), 0)
 
 		if direction == 'right':
 			self.twist.angular.z = -1 * dist / delta_t
