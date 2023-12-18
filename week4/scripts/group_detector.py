@@ -307,7 +307,7 @@ def main(group_pub, viz_pub):
 			group_pub.publish(n_msg)
 			viz_pub.publish(viz_msg)
 
-		rospy.sleep(.1)
+		rospy.sleep(1)
 
 def delete_all_viz_messages():
 	viz_pub = rospy.Publisher('/visualization_marker', Marker, queue_size=10)

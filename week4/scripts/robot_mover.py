@@ -76,7 +76,7 @@ class GroupIdentifier:
 
 	def __init__(self, robot_prefix):
 		self.objects 		= []
-		self.gains			= np.array([1, 1, 1])
+		self.gains			= np.array([2, 2, 2])
 		self.buffer 		= 2.0 
 
 		self.group_sub		= rospy.Subscriber(robot_prefix + '/detected_groups', Group, self.groupCallback)
@@ -135,7 +135,9 @@ class RobotMover:
 
 		self.twist.linear.x = max(np.linalg.norm(vel) * math.cos(dist), 0)
 
-		if direction == 'right':
+		if math.sqrt(vel[0] ** 2 + vel[1] ** 2 + vel[2] ** 2) == 0:
+			self.twist.angular.z = 0
+		elif direction == 'right':
 			self.twist.angular.z = -1 * dist / delta_t
 		else:
 			self.twist.angular.z = dist / delta_t
@@ -212,7 +214,8 @@ class PotentialFieldController:
 
 		self.mover.setTwistFromVelocity(np.array([0, 0, 0]), 1)
 
-		self.mover.publishTwist()
+		for i in range(10):
+			self.mover.publishTwist()
 
 def main():
 
