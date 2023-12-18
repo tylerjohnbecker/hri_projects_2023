@@ -158,7 +158,7 @@ def in_a_circle(grp ):
 
 	# if the largest distance between the people is too far then they aren't in a circle
 	if max_dist > 4.0:
-		return False
+		return False, 0, 0
 
 	msg_midpoint = Pose()
 	msg_midpoint.position.x = midpoint[0]

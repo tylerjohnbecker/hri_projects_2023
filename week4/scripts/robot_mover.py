@@ -9,6 +9,7 @@ from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 from week4.msg import Group
+from geometry_msgs.msg import PoseStamped
 
 def get_smallest_dist_and_direction(ang1, ang2):
 
@@ -71,12 +72,11 @@ class ObjectIdentifier:
 
 		self.objects = n_objects
 
-
 class GroupIdentifier:
 
-	def __init__(self):
+	def __init__(self, robot_prefix):
 		self.objects 		= []
-		self.attr_gains		= np.array([.1, .1, .1])
+		self.gains			= np.array([1, 1, 1])
 		self.buffer 		= 2.0 
 
 		self.group_sub		= rospy.Subscriber(robot_prefix + '/detected_groups', Group, self.groupCallback)
@@ -87,15 +87,9 @@ class GroupIdentifier:
 
 		midpoint = np.array([data.midpoint.position.x, data.midpoint.position.y, data.midpoint.position.z])
 
-		if data.type == 'circle':
+		n_obj = Object(midpoint, self.gains, data.size + self.buffer)
 
-			n_obj = Object(midpoint, self.gains, data.size + self.buffer)
-
-			self.objects.append(n_obj)
-
-		elif data.type == 'line':
-
-			future_point			
+		self.objects.append(n_obj)			
 
 class OdomListener:
 
@@ -151,7 +145,7 @@ class PotentialFieldController:
 	tolerance = .5
 
 	def __init__ (self, robot_prefix, tol):
-		self.groups 		= GroupIdentifier()
+		self.groups 		= GroupIdentifier(robot_prefix)
 		self.odom			= OdomListener(robot_prefix)
 		self.objects 		= ObjectIdentifier(robot_prefix, self.odom)
 		self.mover 			= RobotMover(robot_prefix, self.odom)
@@ -159,6 +153,11 @@ class PotentialFieldController:
 		self.goal 			= np.array([0, 0, 0])
 		self.obstacles  	= []
 		self.tolerance 		= tol
+
+		self.nav_sub		= rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.goalCallback)
+
+	def goalCallback (self, data):
+		self.navigate(np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z]))
 
 	def updateObstacles(self):
 		self.obstacles = []
@@ -211,11 +210,16 @@ class PotentialFieldController:
 
 			self.mover.publishTwist()
 
+		self.mover.setTwistFromVelocity(np.array([0, 0, 0]), 1)
+
+		self.mover.publishTwist()
+
 def main():
 
 	pfc = PotentialFieldController(robot_prefix='/robot_0', tol=.5)
 
-	pfc.navigate(np.array([-6, 6, 0]))
+	while not rospy.is_shutdown():
+		pass
 
 if __name__ == '__main__':
 
