@@ -1,0 +1,5 @@
+<launch>
+	<rosparam param='source_list'>['joint_state_listener']</rosparam>
+
+	<node type='joint_state_publisher' pkg='joint_state_publisher' name='my_jsp'/>
+</launch>

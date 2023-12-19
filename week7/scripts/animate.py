@@ -26,7 +26,7 @@ class Animator:
 
 	def __init__(self, max_frames):
 
-		self.joint_state_pub = rospy.Publisher('/joint_states', JointState, queue_size=10)
+		self.joint_state_pub = rospy.Publisher('/joint_state_listener', JointState, queue_size=10)
 
 		self.animate_sub = rospy.Subscriber('/animate', Animate, self.animateCb)
 
