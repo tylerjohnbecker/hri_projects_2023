@@ -1,0 +1,9 @@
+<launch>
+
+	<include file='$(find nao_description)/launch/robot_state_publisher.launch'/>
+	<include file='$(find week7)/launch/joint_state_publisher.launch'/>
+
+	<node type='animate.py' pkg='week7' name='animator'/>
+	<node type='look_at_tf.py' pkg='week8' name='looker'/>
+
+</launch>
