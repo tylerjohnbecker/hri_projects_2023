@@ -12,6 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   rviz
   tf2
+  week7
+  std_msgs
+  geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions

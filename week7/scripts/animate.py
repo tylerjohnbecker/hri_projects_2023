@@ -80,7 +80,7 @@ class Animator:
 
 			self.joint_state_pub.publish(self.poseToJointStateMsg(next_pose))
 
-			rospy.Time.sleep(time_inc)
+			rospy.sleep(time_inc)
 
 	def animateCb(self, data):
 

@@ -1,0 +1,5 @@
+<launch>
+	<node type="static_transform_publisher" pkg="tf" name="dum_pub" args="1 0 0 0 0 0 1 r_gripper r_hand_point 100"/>
+
+	<node pkg="rostopic" type="rostopic" name="rostopic_pub_node" output="screen" args="pub /look_at std_msgs/String 'data: r_hand_point'" />
+</launch>
