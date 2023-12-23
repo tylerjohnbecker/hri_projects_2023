@@ -435,6 +435,6 @@ if __name__ == '__main__':
 
     map_loc += '/world/basic_map.pgm'
 
-    read_map(map_loc)
+    # read_map(map_loc)
 
-    # follow_people(pub)
+    follow_people(pub)
